@@ -19,15 +19,13 @@ Read the blog post to learn more about Cloudflare Email Service and how to use i
 Click the button above to deploy to your Cloudflare account. The deploy flow will automatically provision R2, Durable Objects, and Workers AI. You'll be prompted for:
 
 - **DOMAINS** -- your domain with Email Routing enabled (e.g. `example.com`)
-- **POLICY_AUD** -- your Cloudflare Access Application Audience tag (for auth)
-- **TEAM_DOMAIN** -- your Access team domain (e.g. `https://your-team.cloudflareaccess.com`)
 
 ### After deploying
 
 1. **Set up Email Routing** -- In the Cloudflare dashboard, go to your domain > Email Routing and create a catch-all rule that forwards to this Worker
 2. **Enable Email Service** -- The worker needs the `send_email` binding to send outbound emails. See [Email Service docs](https://developers.cloudflare.com/email-routing/email-workers/send-email-workers/)
 3. **Create a mailbox** -- Visit your deployed app and create a mailbox for any address on your domain (e.g. `hello@example.com`)
-4. **Configure Cloudflare Access** -- Enable [one-click Cloudflare Access](https://developers.cloudflare.com/changelog/post/2025-10-03-one-click-access-for-workers/) on your Worker under Settings > Domains & Routes. The modal will show your `POLICY_AUD` and `TEAM_DOMAIN` values
+4. **Configure Cloudflare Access** -- Enable [one-click Cloudflare Access](https://developers.cloudflare.com/changelog/post/2025-10-03-one-click-access-for-workers/) on your Worker under Settings > Domains & Routes. The modal will show your `POLICY_AUD` and `TEAM_DOMAIN` values. **You must set these are secrets for your Worker.**
 
 ## Features
 
