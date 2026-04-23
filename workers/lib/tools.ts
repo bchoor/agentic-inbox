@@ -446,6 +446,7 @@ export async function toolSendReply(
 		await sendEmail(env, {
 			to: params.to,
 			from: fromEmail,
+			...(fromEmail !== mailboxId.toLowerCase() ? { replyTo: mailboxId } : {}),
 			subject: params.subject,
 			html: fullBodyHtml,
 			headers: buildThreadingHeaders(originalMsgId, references),
@@ -517,6 +518,7 @@ export async function toolSendEmail(
 		await sendEmail(env, {
 			to: params.to,
 			from: fromEmail,
+			...(fromEmail !== mailboxId.toLowerCase() ? { replyTo: mailboxId } : {}),
 			subject: params.subject,
 			html: sanitizedBody,
 		});

@@ -210,9 +210,11 @@ app.post("/api/v1/mailboxes/:mailboxId/emails", async (c: AppContext) => {
 		]),
 	}, attachmentData);
 
+	const replyToOverride = configuredFromAddress !== mailboxId.toLowerCase() ? mailboxId : undefined;
 	c.executionCtx.waitUntil(
 		sendEmail(c.env, {
 			to, cc, bcc, from, subject, html, text,
+			...(replyToOverride ? { replyTo: replyToOverride } : {}),
 			attachments: attachments?.map((att) => ({ content: att.content, filename: att.filename, type: att.type, disposition: att.disposition || "attachment", contentId: att.contentId })),
 			...(in_reply_to ? { headers: buildThreadingHeaders(in_reply_to, references || []) } : {}),
 		}).catch((e) => console.error("Deferred email delivery failed:", (e as Error).message)),
