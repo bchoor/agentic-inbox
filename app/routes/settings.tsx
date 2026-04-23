@@ -20,12 +20,14 @@ export default function SettingsRoute() {
 
 	const [displayName, setDisplayName] = useState("");
 	const [agentPrompt, setAgentPrompt] = useState("");
+	const [autoDraftEnabled, setAutoDraftEnabled] = useState(true);
 	const [isSaving, setIsSaving] = useState(false);
 
 	useEffect(() => {
 		if (mailbox) {
 			setDisplayName(mailbox.settings?.fromName || mailbox.name || "");
 			setAgentPrompt(mailbox.settings?.agentSystemPrompt || "");
+			setAutoDraftEnabled(mailbox.settings?.autoDraft?.enabled !== false);
 		}
 	}, [mailbox]);
 
@@ -36,6 +38,7 @@ export default function SettingsRoute() {
 			...mailbox.settings,
 			fromName: displayName,
 			agentSystemPrompt: agentPrompt.trim() || undefined,
+			autoDraft: { enabled: autoDraftEnabled },
 		};
 		try {
 			await updateMailboxMutation.mutateAsync({ mailboxId, settings });
@@ -81,6 +84,31 @@ export default function SettingsRoute() {
 							onChange={(e) => setDisplayName(e.target.value)}
 						/>
 						<Input label="Email" type="email" value={mailbox.email} disabled />
+					</div>
+				</div>
+
+				{/* Auto-draft */}
+				<div className="rounded-lg border border-kumo-line bg-kumo-base p-5">
+					<div className="flex items-center justify-between">
+						<div>
+							<div className="text-sm font-medium text-kumo-default">
+								Auto-draft replies on incoming email
+							</div>
+							<p className="text-xs text-kumo-subtle mt-0.5">
+								When enabled, the AI agent automatically drafts a reply for each new inbound email.
+							</p>
+						</div>
+						<button
+							type="button"
+							role="switch"
+							aria-checked={autoDraftEnabled}
+							onClick={() => setAutoDraftEnabled((v) => !v)}
+							className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-1 focus:ring-kumo-ring ${autoDraftEnabled ? "bg-kumo-primary" : "bg-kumo-recessed border border-kumo-line"}`}
+						>
+							<span
+								className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-kumo-default shadow transition-transform ${autoDraftEnabled ? "translate-x-4" : "translate-x-0"}`}
+							/>
+						</button>
 					</div>
 				</div>
 
