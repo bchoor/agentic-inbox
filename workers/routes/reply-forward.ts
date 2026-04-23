@@ -13,6 +13,9 @@ import {
 	buildReferencesChain,
 	buildThreadingHeaders,
 	resolveOriginalEmail,
+	getMailboxSettings,
+	resolveFromAddress,
+	isResendEnabled,
 } from "../lib/email-helpers";
 import { SendEmailRequestSchema } from "../lib/schemas";
 import { Folders } from "../../shared/folders";
@@ -37,9 +40,15 @@ export async function handleReplyEmail(c: AppContext) {
 	const originalEmail = await resolveOriginalEmail(stub, rawOriginal);
 	const { originalMsgId, references, threadId: thread_id } = buildReferencesChain(originalEmail);
 
+	const settings = await getMailboxSettings(c.env, mailboxId);
+	if (!isResendEnabled(settings)) {
+		return c.json({ error: "Outbound sending is disabled for this mailbox. Enable Resend sending in settings." }, 400);
+	}
+	const configuredFromAddress = resolveFromAddress(settings, mailboxId);
+
 	let toStr: string, fromEmail: string, fromDomain: string;
 	try {
-		({ toStr, fromEmail, fromDomain } = validateSender(to, from, mailboxId));
+		({ toStr, fromEmail, fromDomain } = validateSender(to, from, mailboxId, configuredFromAddress));
 	} catch (e) {
 		if (e instanceof SenderValidationError) return c.json({ error: e.message }, 400);
 		throw e;
@@ -127,9 +136,15 @@ export async function handleForwardEmail(c: AppContext) {
 
 	await resolveOriginalEmail(stub, rawOriginal);
 
+	const settings = await getMailboxSettings(c.env, mailboxId);
+	if (!isResendEnabled(settings)) {
+		return c.json({ error: "Outbound sending is disabled for this mailbox. Enable Resend sending in settings." }, 400);
+	}
+	const configuredFromAddress = resolveFromAddress(settings, mailboxId);
+
 	let toStr: string, fromEmail: string, fromDomain: string;
 	try {
-		({ toStr, fromEmail, fromDomain } = validateSender(to, from, mailboxId));
+		({ toStr, fromEmail, fromDomain } = validateSender(to, from, mailboxId, configuredFromAddress));
 	} catch (e) {
 		if (e instanceof SenderValidationError) return c.json({ error: e.message }, 400);
 		throw e;

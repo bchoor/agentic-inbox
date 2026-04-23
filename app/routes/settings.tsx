@@ -42,6 +42,8 @@ export default function SettingsRoute() {
 	const [autoDraftEnabled, setAutoDraftEnabled] = useState(true);
 	const [selectedModelValue, setSelectedModelValue] = useState(DEFAULT_MODEL_VALUE);
 	const [customModel, setCustomModel] = useState("");
+	const [resendEnabled, setResendEnabled] = useState(true);
+	const [fromAddress, setFromAddress] = useState("");
 	const [isSaving, setIsSaving] = useState(false);
 
 	useEffect(() => {
@@ -49,6 +51,8 @@ export default function SettingsRoute() {
 			setDisplayName(mailbox.settings?.fromName || mailbox.name || "");
 			setAgentPrompt(mailbox.settings?.agentSystemPrompt || "");
 			setAutoDraftEnabled(mailbox.settings?.autoDraft?.enabled !== false);
+			setResendEnabled(mailbox.settings?.resendEnabled !== false);
+			setFromAddress(mailbox.settings?.fromAddress || "");
 
 			const savedModel = mailbox.settings?.agentModel as string | undefined;
 			const selectVal = modelToSelectValue(savedModel);
@@ -61,6 +65,12 @@ export default function SettingsRoute() {
 		}
 	}, [mailbox]);
 
+	const trimmedFromAddress = fromAddress.trim();
+	const isFromAddressValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedFromAddress);
+	const fromAddressError = resendEnabled && !isFromAddressValid
+		? "Enter the verified Resend sending address (e.g. hello@homeyfy.com)."
+		: null;
+
 	const isCustomModel = selectedModelValue === CUSTOM_MODEL_SENTINEL;
 
 	const effectiveModel = (): string | undefined => {
@@ -71,6 +81,10 @@ export default function SettingsRoute() {
 
 	const handleSave = async () => {
 		if (!mailbox || !mailboxId) return;
+		if (fromAddressError) {
+			toastManager.add({ title: fromAddressError, variant: "error" });
+			return;
+		}
 		setIsSaving(true);
 		const settings = {
 			...mailbox.settings,
@@ -78,6 +92,8 @@ export default function SettingsRoute() {
 			agentSystemPrompt: agentPrompt.trim() || undefined,
 			autoDraft: { enabled: autoDraftEnabled },
 			agentModel: effectiveModel(),
+			resendEnabled,
+			fromAddress: resendEnabled ? trimmedFromAddress : undefined,
 		};
 		try {
 			await updateMailboxMutation.mutateAsync({ mailboxId, settings });
@@ -143,6 +159,43 @@ export default function SettingsRoute() {
 							aria-label="Auto-draft replies on incoming email"
 						/>
 					</div>
+				</div>
+
+				{/* Outbound sending (Resend) */}
+				<div className="rounded-lg border border-kumo-line bg-kumo-base p-5">
+					<div className="flex items-center justify-between gap-4">
+						<div>
+							<div className="text-sm font-medium text-kumo-default">
+								Enable outbound sending via Resend
+							</div>
+							<p className="text-xs text-kumo-subtle mt-0.5">
+								When disabled, send/reply/forward from this mailbox will be blocked.
+							</p>
+						</div>
+						<Switch
+							checked={resendEnabled}
+							onCheckedChange={setResendEnabled}
+							aria-label="Enable outbound sending via Resend"
+						/>
+					</div>
+					{resendEnabled && (
+						<div className="mt-4 space-y-1">
+							<Input
+								label="Sending address"
+								type="email"
+								value={fromAddress}
+								onChange={(e) => setFromAddress(e.target.value)}
+								placeholder="hello@homeyfy.com"
+								required
+							/>
+							<p className="text-xs text-kumo-subtle">
+								Outgoing mail from this mailbox will be sent as this address. The domain must be verified in your Resend account.
+							</p>
+							{fromAddressError && (
+								<p className="text-xs text-kumo-danger">{fromAddressError}</p>
+							)}
+						</div>
+					)}
 				</div>
 
 				{/* Agent System Prompt */}
