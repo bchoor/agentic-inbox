@@ -25,6 +25,9 @@ import {
 	generateMessageId,
 	buildReferencesChain,
 	buildThreadingHeaders,
+	getMailboxSettings,
+	resolveFromAddress,
+	isResendEnabled,
 } from "./email-helpers";
 import { verifyDraft } from "./ai";
 import { sendEmail } from "../email-sender";
@@ -416,9 +419,15 @@ export async function toolSendReply(
 		return { error: "Original email not found" };
 	}
 
+	const settings = await getMailboxSettings(env, mailboxId);
+	if (!isResendEnabled(settings)) {
+		return { error: "Outbound sending is disabled for this mailbox. Enable Resend sending in settings." };
+	}
+	const fromEmail = resolveFromAddress(settings, mailboxId);
+
 	const { originalMsgId, references, threadId } = buildReferencesChain(originalEmail);
-	const fromDomain = mailboxId.split("@")[1];
-	if (!fromDomain) throw new Error("Invalid mailbox email address");
+	const fromDomain = fromEmail.split("@")[1];
+	if (!fromDomain) throw new Error("Invalid sender email address");
 	const { messageId, outgoingMessageId } = generateMessageId(fromDomain);
 
 	// Verify and append quoted original message
@@ -436,7 +445,7 @@ export async function toolSendReply(
 	try {
 		await sendEmail(env, {
 			to: params.to,
-			from: mailboxId,
+			from: fromEmail,
 			subject: params.subject,
 			html: fullBodyHtml,
 			headers: buildThreadingHeaders(originalMsgId, references),
@@ -451,7 +460,7 @@ export async function toolSendReply(
 		{
 			id: messageId,
 			subject: params.subject,
-			sender: mailboxId.toLowerCase(),
+			sender: fromEmail,
 			recipient: params.to.toLowerCase(),
 			date: new Date().toISOString(),
 			body: fullBodyHtml,
@@ -489,8 +498,14 @@ export async function toolSendEmail(
 		return { error: rateLimitError };
 	}
 
-	const fromDomain = mailboxId.split("@")[1];
-	if (!fromDomain) throw new Error("Invalid mailbox email address");
+	const settings = await getMailboxSettings(env, mailboxId);
+	if (!isResendEnabled(settings)) {
+		return { error: "Outbound sending is disabled for this mailbox. Enable Resend sending in settings." };
+	}
+	const fromEmail = resolveFromAddress(settings, mailboxId);
+
+	const fromDomain = fromEmail.split("@")[1];
+	if (!fromDomain) throw new Error("Invalid sender email address");
 	const { messageId, outgoingMessageId } = generateMessageId(fromDomain);
 
 	const sanitizedBody = await verifyDraft(env.AI, params.bodyHtml);
@@ -501,7 +516,7 @@ export async function toolSendEmail(
 	try {
 		await sendEmail(env, {
 			to: params.to,
-			from: mailboxId,
+			from: fromEmail,
 			subject: params.subject,
 			html: sanitizedBody,
 		});
@@ -515,7 +530,7 @@ export async function toolSendEmail(
 		{
 			id: messageId,
 			subject: params.subject,
-			sender: mailboxId.toLowerCase(),
+			sender: fromEmail,
 			recipient: params.to.toLowerCase(),
 			date: new Date().toISOString(),
 			body: sanitizedBody,

@@ -239,7 +239,8 @@ export function useComposeForm(mailboxId?: string, _folder?: string) {
 		if (toRecipients.length === 0) { setError("Add at least one recipient."); return; }
 		const ccRecipients = splitEmailList(cc); const bccRecipients = splitEmailList(bcc);
 		const fromName = currentMailbox.settings?.fromName || currentMailbox.name;
-		const from = fromName && fromName !== currentMailbox.email ? { email: currentMailbox.email, name: fromName } : currentMailbox.email;
+		const fromEmail = currentMailbox.settings?.fromAddress?.trim() || currentMailbox.email;
+		const from = fromName && fromName !== fromEmail ? { email: fromEmail, name: fromName } : fromEmail;
 		const emailData = {
 			to: toEmailListValue(toRecipients),
 			cc: toEmailListValue(ccRecipients),

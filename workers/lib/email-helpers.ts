@@ -44,22 +44,70 @@ export async function listMailboxes(
 	});
 }
 
+// ── Mailbox Settings ───────────────────────────────────────────────
+
+/**
+ * Load mailbox settings from R2. Returns {} when the mailbox record is
+ * missing or unparseable; callers treat absence as "use defaults".
+ */
+export async function getMailboxSettings(
+	env: Env,
+	mailboxId: string,
+): Promise<Record<string, unknown>> {
+	try {
+		const obj = await env.BUCKET.get(`mailboxes/${mailboxId}.json`);
+		if (!obj) return {};
+		return await obj.json<Record<string, unknown>>();
+	} catch {
+		return {};
+	}
+}
+
+/**
+ * Resolve the effective From email for outbound mail.
+ * Uses settings.fromAddress when set (non-empty), otherwise falls back to mailboxId.
+ */
+export function resolveFromAddress(
+	settings: Record<string, unknown>,
+	mailboxId: string,
+): string {
+	const addr = settings.fromAddress;
+	if (typeof addr === "string" && addr.trim()) {
+		return addr.trim().toLowerCase();
+	}
+	return mailboxId.toLowerCase();
+}
+
+/**
+ * True when outbound sending is permitted for this mailbox.
+ * resendEnabled missing/undefined is treated as enabled for backward compat.
+ */
+export function isResendEnabled(settings: Record<string, unknown>): boolean {
+	return settings.resendEnabled !== false;
+}
+
 // ── Sender Validation ──────────────────────────────────────────────
 
 /**
- * Normalise to/from addresses and validate the sender matches the mailbox.
+ * Normalise to/from addresses and validate the sender matches the mailbox
+ * or its configured fromAddress override.
  * Returns the normalised values or throws with a user-facing message.
  */
 export function validateSender(
 	to: string | string[],
 	from: string | { email: string; name: string },
 	mailboxId: string,
+	allowedFromEmail?: string,
 ): { toStr: string; fromEmail: string; fromDomain: string } {
 	const toStr = (Array.isArray(to) ? to.join(", ") : to).toLowerCase();
 	const fromEmail = (typeof from === "string" ? from : from.email).toLowerCase();
 
-	if (fromEmail !== mailboxId.toLowerCase()) {
-		throw new SenderValidationError("From address must match the mailbox email address");
+	const mailboxLower = mailboxId.toLowerCase();
+	const allowedLower = allowedFromEmail?.toLowerCase();
+	if (fromEmail !== mailboxLower && fromEmail !== allowedLower) {
+		throw new SenderValidationError(
+			"From address must match the mailbox email address or the configured sending address",
+		);
 	}
 
 	const fromDomain = fromEmail.split("@")[1];

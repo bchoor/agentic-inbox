@@ -15,6 +15,8 @@ export interface MailboxSettings {
 	autoReply?: { enabled: boolean; subject: string; message: string };
 	agentSystemPrompt?: string;
 	autoDraft?: { enabled: boolean };
+	resendEnabled?: boolean;
+	fromAddress?: string;
 }
 
 export interface Mailbox {

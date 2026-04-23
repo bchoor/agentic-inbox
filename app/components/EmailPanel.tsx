@@ -116,7 +116,8 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 			const toRecipients = splitEmailList(target.recipient);
 			if (toRecipients.length === 0) { toastManager.add({ title: "Cannot send: no valid recipient set on this draft.", variant: "error" }); return; }
 			const fromName = currentMailbox.settings?.fromName || currentMailbox.name;
-			const from = fromName && fromName !== currentMailbox.email ? { email: currentMailbox.email, name: fromName } : currentMailbox.email;
+			const fromEmail = currentMailbox.settings?.fromAddress?.trim() || currentMailbox.email;
+			const from = fromName && fromName !== fromEmail ? { email: fromEmail, name: fromName } : fromEmail;
 			const originalEmail = target.in_reply_to ? allMessages.find((msg) => msg.id === target.in_reply_to) : undefined;
 			const emailData = {
 				to: toEmailListValue(toRecipients),
