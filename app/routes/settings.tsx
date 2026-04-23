@@ -12,6 +12,25 @@ import { useMailbox, useUpdateMailbox } from "~/queries/mailboxes";
 // The authoritative default prompt lives in workers/agent/index.ts (DEFAULT_SYSTEM_PROMPT).
 const PROMPT_PLACEHOLDER = `You are an email assistant that helps manage this inbox. You read emails, draft replies, and help organize conversations.\n\nWrite like a real person. Short, direct, flowing prose. Plain text only.\n\n(Leave empty to use the full built-in default prompt)`;
 
+const DEFAULT_MODEL_VALUE = "@cf/moonshotai/kimi-k2.5";
+const CUSTOM_MODEL_SENTINEL = "__custom__";
+
+const MODEL_OPTIONS = [
+	{ label: "Default (Kimi K2.5)", value: DEFAULT_MODEL_VALUE },
+	{ label: "Llama 3.3 70B Fast", value: "@cf/meta/llama-3.3-70b-instruct-fp8-fast" },
+	{ label: "Llama 3.1 8B Fast", value: "@cf/meta/llama-3.1-8b-instruct-fast" },
+	{ label: "Qwen 2.5 Coder 32B", value: "@cf/qwen/qwen2.5-coder-32b-instruct" },
+	{ label: "Gemma 3 12B", value: "@cf/google/gemma-3-12b-it" },
+	{ label: "Mistral Small 3.1 24B", value: "@cf/mistralai/mistral-small-3.1-24b-instruct" },
+	{ label: "Custom…", value: CUSTOM_MODEL_SENTINEL },
+] as const;
+
+function modelToSelectValue(model: string | undefined): string {
+	if (!model) return DEFAULT_MODEL_VALUE;
+	const preset = MODEL_OPTIONS.find((o) => o.value === model && o.value !== CUSTOM_MODEL_SENTINEL);
+	return preset ? preset.value : CUSTOM_MODEL_SENTINEL;
+}
+
 export default function SettingsRoute() {
 	const { mailboxId } = useParams<{ mailboxId: string }>();
 	const toastManager = useKumoToastManager();
@@ -21,6 +40,8 @@ export default function SettingsRoute() {
 	const [displayName, setDisplayName] = useState("");
 	const [agentPrompt, setAgentPrompt] = useState("");
 	const [autoDraftEnabled, setAutoDraftEnabled] = useState(true);
+	const [selectedModelValue, setSelectedModelValue] = useState(DEFAULT_MODEL_VALUE);
+	const [customModel, setCustomModel] = useState("");
 	const [isSaving, setIsSaving] = useState(false);
 
 	useEffect(() => {
@@ -28,8 +49,25 @@ export default function SettingsRoute() {
 			setDisplayName(mailbox.settings?.fromName || mailbox.name || "");
 			setAgentPrompt(mailbox.settings?.agentSystemPrompt || "");
 			setAutoDraftEnabled(mailbox.settings?.autoDraft?.enabled !== false);
+
+			const savedModel = mailbox.settings?.agentModel as string | undefined;
+			const selectVal = modelToSelectValue(savedModel);
+			setSelectedModelValue(selectVal);
+			if (selectVal === CUSTOM_MODEL_SENTINEL) {
+				setCustomModel(savedModel || "");
+			} else {
+				setCustomModel("");
+			}
 		}
 	}, [mailbox]);
+
+	const isCustomModel = selectedModelValue === CUSTOM_MODEL_SENTINEL;
+
+	const effectiveModel = (): string | undefined => {
+		if (selectedModelValue === DEFAULT_MODEL_VALUE) return undefined;
+		if (isCustomModel) return customModel.trim() || undefined;
+		return selectedModelValue;
+	};
 
 	const handleSave = async () => {
 		if (!mailbox || !mailboxId) return;
@@ -39,6 +77,7 @@ export default function SettingsRoute() {
 			fromName: displayName,
 			agentSystemPrompt: agentPrompt.trim() || undefined,
 			autoDraft: { enabled: autoDraftEnabled },
+			agentModel: effectiveModel(),
 		};
 		try {
 			await updateMailboxMutation.mutateAsync({ mailboxId, settings });
@@ -152,6 +191,43 @@ export default function SettingsRoute() {
 						The prompt is sent as the system message to the AI model.
 						It controls the agent's personality, writing style, and behavior rules.
 					</p>
+				</div>
+
+				{/* Agent Model */}
+				<div className="rounded-lg border border-kumo-line bg-kumo-base p-5">
+					<div className="flex items-center gap-2 mb-4">
+						<RobotIcon size={16} weight="duotone" className="text-kumo-subtle" />
+						<span className="text-sm font-medium text-kumo-default">
+							AI Agent Model
+						</span>
+					</div>
+					<p className="text-xs text-kumo-subtle mb-3">
+						Choose the Workers AI model used by the agent for this mailbox.
+						Select "Default" to follow the built-in default (Kimi K2.5).
+					</p>
+					<select
+						value={selectedModelValue}
+						onChange={(e) => {
+							setSelectedModelValue(e.target.value);
+							if (e.target.value !== CUSTOM_MODEL_SENTINEL) setCustomModel("");
+						}}
+						className="w-full rounded-lg border border-kumo-line bg-kumo-recessed px-3 py-1.5 text-xs text-kumo-default focus:outline-none focus:ring-1 focus:ring-kumo-ring"
+					>
+						{MODEL_OPTIONS.map((opt) => (
+							<option key={opt.value} value={opt.value}>
+								{opt.label}
+							</option>
+						))}
+					</select>
+					{isCustomModel && (
+						<input
+							type="text"
+							value={customModel}
+							onChange={(e) => setCustomModel(e.target.value)}
+							placeholder="@cf/provider/model-name"
+							className="mt-2 w-full rounded-lg border border-kumo-line bg-kumo-recessed px-3 py-1.5 text-xs text-kumo-default placeholder:text-kumo-subtle focus:outline-none focus:ring-1 focus:ring-kumo-ring font-mono"
+						/>
+					)}
 				</div>
 
 				{/* Save */}

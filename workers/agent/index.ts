@@ -87,24 +87,32 @@ You can ONLY draft emails. You do NOT have the ability to send emails directly.
 ## Draft Management
 Use discard_draft to delete drafts that the operator rejects or that are no longer needed.`;
 
+const DEFAULT_MODEL = "@cf/moonshotai/kimi-k2.5";
+
 /**
- * Fetch the custom system prompt for a mailbox from its R2 settings.
- * Falls back to DEFAULT_SYSTEM_PROMPT if none is configured.
+ * Fetch the agent config (system prompt + model) for a mailbox from its R2 settings.
+ * Falls back to DEFAULT_SYSTEM_PROMPT and DEFAULT_MODEL if none is configured.
  */
-async function getSystemPrompt(env: Env, mailboxId: string): Promise<string> {
+async function getMailboxAgentConfig(env: Env, mailboxId: string): Promise<{ systemPrompt: string; model: string }> {
 	try {
 		const key = `mailboxes/${mailboxId}.json`;
 		const obj = await env.BUCKET.get(key);
 		if (obj) {
 			const settings = await obj.json<Record<string, unknown>>();
-			if (typeof settings.agentSystemPrompt === "string" && settings.agentSystemPrompt.trim()) {
-				return settings.agentSystemPrompt;
-			}
+			const systemPrompt =
+				typeof settings.agentSystemPrompt === "string" && settings.agentSystemPrompt.trim()
+					? settings.agentSystemPrompt
+					: DEFAULT_SYSTEM_PROMPT;
+			const model =
+				typeof settings.agentModel === "string" && settings.agentModel.trim()
+					? settings.agentModel
+					: DEFAULT_MODEL;
+			return { systemPrompt, model };
 		}
 	} catch {
-		// Fall through to default
+		// Fall through to defaults
 	}
-	return DEFAULT_SYSTEM_PROMPT;
+	return { systemPrompt: DEFAULT_SYSTEM_PROMPT, model: DEFAULT_MODEL };
 }
 
 function createEmailTools(env: Env, mailboxId: string) {
@@ -278,11 +286,11 @@ export class EmailAgent extends AIChatAgent<any> {
 		const mailboxId = this.name;
 		const workersai = createWorkersAI({ binding: env.AI });
 		const tools = createEmailTools(env, mailboxId);
-		const systemPrompt = await getSystemPrompt(env, mailboxId);
+		const config = await getMailboxAgentConfig(env, mailboxId);
 
 		const result = streamText({
-			model: workersai("@cf/moonshotai/kimi-k2.5"),
-			system: systemPrompt,
+			model: workersai(config.model),
+			system: config.systemPrompt,
 			messages: await convertToModelMessages(this.messages),
 			tools,
 			stopWhen: stepCountIs(5),
@@ -336,7 +344,7 @@ export class EmailAgent extends AIChatAgent<any> {
 		const env = this.env as Env;
 		const workersai = createWorkersAI({ binding: env.AI });
 		const tools = createEmailTools(env, emailData.mailboxId);
-		const systemPrompt = await getSystemPrompt(env, emailData.mailboxId);
+		const config = await getMailboxAgentConfig(env, emailData.mailboxId);
 
 		// Pre-read the email and thread so the agent has full context
 		// without needing to waste tool calls discovering it
@@ -463,8 +471,8 @@ Based on the email content and thread context above, draft a reply using draft_r
 
 		try {
 			const result = await generateText({
-				model: workersai("@cf/moonshotai/kimi-k2.5"),
-				system: systemPrompt,
+				model: workersai(config.model),
+				system: config.systemPrompt,
 				messages: await convertToModelMessages(messages),
 				tools,
 				stopWhen: stepCountIs(5),
