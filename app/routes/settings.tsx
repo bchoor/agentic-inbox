@@ -2,7 +2,7 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-import { Badge, Button, Input, Loader, useKumoToastManager } from "@cloudflare/kumo";
+import { Badge, Button, Input, Loader, Switch, useKumoToastManager } from "@cloudflare/kumo";
 import { RobotIcon, ArrowCounterClockwiseIcon } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router";
@@ -128,7 +128,7 @@ export default function SettingsRoute() {
 
 				{/* Auto-draft */}
 				<div className="rounded-lg border border-kumo-line bg-kumo-base p-5">
-					<div className="flex items-center justify-between">
+					<div className="flex items-center justify-between gap-4">
 						<div>
 							<div className="text-sm font-medium text-kumo-default">
 								Auto-draft replies on incoming email
@@ -137,17 +137,11 @@ export default function SettingsRoute() {
 								When enabled, the AI agent automatically drafts a reply for each new inbound email.
 							</p>
 						</div>
-						<button
-							type="button"
-							role="switch"
-							aria-checked={autoDraftEnabled}
-							onClick={() => setAutoDraftEnabled((v) => !v)}
-							className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-1 focus:ring-kumo-ring ${autoDraftEnabled ? "bg-kumo-primary" : "bg-kumo-recessed border border-kumo-line"}`}
-						>
-							<span
-								className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-kumo-default shadow transition-transform ${autoDraftEnabled ? "translate-x-4" : "translate-x-0"}`}
-							/>
-						</button>
+						<Switch
+							checked={autoDraftEnabled}
+							onCheckedChange={setAutoDraftEnabled}
+							aria-label="Auto-draft replies on incoming email"
+						/>
 					</div>
 				</div>
 
