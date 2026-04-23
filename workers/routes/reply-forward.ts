@@ -96,6 +96,7 @@ export async function handleReplyEmail(c: AppContext) {
 
 	await stub.markThreadRead(thread_id);
 
+	const replyToOverride = configuredFromAddress !== mailboxId.toLowerCase() ? mailboxId : undefined;
 	c.executionCtx.waitUntil(
 		sendEmail(c.env, {
 			to,
@@ -105,6 +106,7 @@ export async function handleReplyEmail(c: AppContext) {
 			subject,
 			html,
 			text,
+			...(replyToOverride ? { replyTo: replyToOverride } : {}),
 			attachments: attachments?.map((att) => ({
 				content: att.content,
 				filename: att.filename,
@@ -188,6 +190,7 @@ export async function handleForwardEmail(c: AppContext) {
 		attachmentData,
 	);
 
+	const forwardReplyToOverride = configuredFromAddress !== mailboxId.toLowerCase() ? mailboxId : undefined;
 	c.executionCtx.waitUntil(
 		sendEmail(c.env, {
 			to,
@@ -197,6 +200,7 @@ export async function handleForwardEmail(c: AppContext) {
 			subject,
 			html,
 			text,
+			...(forwardReplyToOverride ? { replyTo: forwardReplyToOverride } : {}),
 			attachments: attachments?.map((att) => ({
 				content: att.content,
 				filename: att.filename,
